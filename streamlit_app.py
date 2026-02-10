@@ -1,35 +1,93 @@
 import streamlit as st
 import pandas as pd
 import joblib
-from sklearn.metrics import classification_report, confusion_matrix
+import numpy as np
+from sklearn.metrics import (
+    classification_report, confusion_matrix, accuracy_score, 
+    roc_auc_score, precision_score, recall_score, f1_score, matthews_corrcoef
+)
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-st.title("ML Classification Model performance review - Early Stage Diabetes Risk Prediction")
+# Set Page Title
+st.set_page_config(page_title="ML Performance Review", layout="wide")
+st.title("ML Classification Model Performance - Early Stage Diabetes Risk Prediction")
 
-# a. Dataset upload option
-uploaded_file = st.file_uploader("Upload your test CSV data", type="csv")
+# --- a. Dataset upload option ---
+st.sidebar.header("Upload Test Data")
+uploaded_file = st.sidebar.file_uploader("Upload your test CSV data", type="csv")
 
 if uploaded_file:
+    # Load Data
     data = pd.read_csv(uploaded_file)
-    st.write("Data Preview:", data.head())
+    st.write("### Test Data Preview")
+    st.dataframe(data.head())
 
-    # b. Model selection dropdown
-    model_option = st.selectbox(
+    # --- b. Model selection dropdown ---
+    st.sidebar.header("Model Selection")
+    model_option = st.sidebar.selectbox(
         'Which model would you like to use?',
         ('Logistic Regression', 'Decision Tree', 'KNN', 'Naive Bayes', 'Random Forest', 'XGBoost')
     )
-    
-    # Load pre-trained models
-    model = joblib.load(f'model/{model_option.lower().replace(' ', '_')}.pkl')
-    
-    st.write(f"Results for {model_option}")
-    
-    # c. Display evaluation metrics
-    st.write(classification_report(y_tst, y_pred))
 
-    # d. Confusion matrix
-    st.subheader("Confusion Matrix")
-    fig, ax = plt.subplots()
-    sns.heatmap(confusion_matrix(y_test, y_preds), annot=True, ax=ax)
-    st.pyplot(fig)
+    # 1. Identify Features and Target
+    # NOTE: Change 'target' to match the actual column name in your diabetes CSV
+    if 'target' in data.columns:
+        X_test = data.drop('target', axis=1)
+        y_test = data['target']
+    else:
+        st.error("The CSV must contain a 'target' column. Please check your column names.")
+        st.stop()
+
+    try:
+        # 2. Load pre-trained model and scaler
+        model_filename = f"model/{model_option.lower().replace(' ', '_')}.pkl"
+        model = joblib.load(model_filename)
+        scaler = joblib.load('model/scaler.pkl')
+
+        # 3. Preprocess data
+        # KNN and Logistic Regression need scaled data
+        if model_option in ['Logistic Regression', 'KNN']:
+            X_test_processed = scaler.transform(X_test)
+        else:
+            X_test_processed = X_test
+
+        # 4. Generate Predictions
+        y_pred = model.predict(X_test_processed)
+        y_prob = model.predict_proba(X_test_processed)[:, 1] if hasattr(model, "predict_proba") else y_pred
+
+        st.divider()
+        st.subheader(f"Results for {model_option}")
+
+        # --- c. Display evaluation metrics (Mandatory 6 metrics) ---
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Accuracy", f"{accuracy_score(y_test, y_pred):.4f}")
+        col2.metric("AUC Score", f"{roc_auc_score(y_test, y_prob):.4f}")
+        col3.metric("Precision", f"{precision_score(y_test, y_pred, average='weighted'):.4f}")
+
+        col4, col5, col6 = st.columns(3)
+        col4.metric("Recall", f"{recall_score(y_test, y_pred, average='weighted'):.4f}")
+        col5.metric("F1 Score", f"{f1_score(y_test, y_pred, average='weighted'):.4f}")
+        col6.metric("MCC Score", f"{matthews_corrcoef(y_test, y_pred):.4f}")
+
+        # --- d. Confusion matrix and Classification Report ---
+        st.subheader("Visual Analysis")
+        viz_col1, viz_col2 = st.columns(2)
+
+        with viz_col1:
+            st.text("Classification Report:")
+            st.text(classification_report(y_test, y_pred))
+
+        with viz_col2:
+            st.text("Confusion Matrix:")
+            fig, ax = plt.subplots()
+            sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt='d', cmap='Blues', ax=ax)
+            st.pyplot(fig)
+
+    except FileNotFoundError:
+        st.error(f"Could not find model file: {model_filename}. Ensure all .pkl files are in the 'model/' folder on GitHub.")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+
+else:
+    st.info("Waiting for test CSV upload...")
