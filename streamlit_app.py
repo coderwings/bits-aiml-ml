@@ -21,7 +21,7 @@ if uploaded_file:
     )
 
     # Load pre-trained models
-    model = joblib.load(f'model/{model_option}.pkl')
+    model = joblib.load(f'model/{model_option.lower().replace(' ', '_')}}.pkl')
     
     st.write(f"Results for {model_option}")
     
