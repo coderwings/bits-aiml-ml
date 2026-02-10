@@ -19,9 +19,9 @@ if uploaded_file:
         'Which model would you like to use?',
         ('Logistic Regression', 'Decision Tree', 'KNN', 'Naive Bayes', 'Random Forest', 'XGBoost')
     )
-
+    
     # Load pre-trained models
-    model = joblib.load(f'model/{model_option.lower().replace(' ', '_')}}.pkl')
+    model = joblib.load(f'model/{model_option.lower().replace(' ', '_')}.pkl')
     
     st.write(f"Results for {model_option}")
     
