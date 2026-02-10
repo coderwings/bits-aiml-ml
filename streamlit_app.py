@@ -26,7 +26,7 @@ if uploaded_file:
     st.write(f"Results for {model_option}")
     
     # c. Display evaluation metrics
-    st.write(classification_report(y_test, y_preds))
+    st.write(classification_report(y_tst, y_pred))
 
     # d. Confusion matrix
     st.subheader("Confusion Matrix")
