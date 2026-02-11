@@ -44,6 +44,15 @@ if uploaded_file:
         model_filename = f"model/{model_option.lower().replace(' ', '_')}.pkl"
         model = joblib.load(model_filename)
         scaler = joblib.load('model/scaler.pkl')
+        
+        # --- FIX: Ensure feature alignment ---
+        # Get the feature names the scaler/model was trained on
+        try:
+            expected_features = scaler.feature_names_in_
+            # Reorder X_test to match training order and drop any extra columns
+            X_test = X_test[expected_features]
+        except AttributeError:
+            st.warning("Could not automatically verify feature names. Ensure CSV columns match training data exactly.")
 
         # 3. Preprocess data
         # KNN and Logistic Regression need scaled data
