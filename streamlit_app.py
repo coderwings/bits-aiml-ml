@@ -35,6 +35,11 @@ if uploaded_file:
     if 'target' in data.columns:
         X_test = data.drop('target', axis=1)
         y_test = data['target']
+        if y_test.dtype == 'object':
+            mapping = {'Positive': 1, 'Negative': 0, 'positive': 1, 'negative': 0, 'Yes': 1, 'No': 0}
+            y_test = y_test.map(lambda x: mapping.get(x, x))
+            # Convert to numeric to handle cases where mapping might leave strings or mixed types
+            y_test = pd.to_numeric(y_test, errors='coerce')
     else:
         st.error("The CSV must contain a 'target' column. Please check your column names.")
         st.stop()
