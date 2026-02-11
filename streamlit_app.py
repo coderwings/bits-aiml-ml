@@ -49,7 +49,19 @@ if uploaded_file:
         # Get the feature names the scaler/model was trained on
         try:
             expected_features = scaler.feature_names_in_
-            # Reorder X_test to match training order and drop any extra columns
+            
+            # Check if we need to perform One-Hot Encoding on the uploaded data to match training
+            # This is common if the CSV has 'Male'/'Female' but model expects 'gender_Male'
+            if not all(col in X_test.columns for col in expected_features):
+                st.info("Aligning categorical features...")
+                X_test = pd.get_dummies(X_test)
+                
+            # Add missing columns with zeros (for categories not present in this specific test set)
+            for col in expected_features:
+                if col not in X_test.columns:
+                    X_test[col] = 0
+            
+            # Reorder columns to exactly match training order
             X_test = X_test[expected_features]
         except AttributeError:
             st.warning("Could not automatically verify feature names. Ensure CSV columns match training data exactly.")
