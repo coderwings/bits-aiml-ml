@@ -40,20 +40,31 @@ if uploaded_file:
         'Which model would you like to use?',
         ('Logistic Regression', 'Decision Tree', 'KNN', 'Naive Bayes', 'Random Forest', 'XGBoost')
     )
+    
+    data.columns = data.columns.str.lower().str.replace(' ', '_')
+    
 
     # 1. Identify Features and Target
     # NOTE: Change 'target' to match the actual column name in your diabetes CSV
-    if 'target' in data.columns:
+    if 'class' in data.columns: # Assuming 'class' is the target column in the uploaded CSV
+        X_test = data.drop('class', axis=1)
+        y_test = data['class']
+        if y_test.dtype == 'object':
+            mapping = {'positive': 1, 'negative': 0, 'yes': 1, 'no': 0} # Lowercased keys to match lowercased column values
+            y_test = y_test.map(lambda x: mapping.get(x.lower(), x)) # Map lowercased values
+            # Convert to numeric to handle cases where mapping might leave strings or mixed types
+            y_test = pd.to_numeric(y_test, errors='coerce')
+    elif 'target' in data.columns:
         X_test = data.drop('target', axis=1)
         y_test = data['target']
         if y_test.dtype == 'object':
-            mapping = {'Positive': 1, 'Negative': 0, 'positive': 1, 'negative': 0, 'Yes': 1, 'No': 0}
-            y_test = y_test.map(lambda x: mapping.get(x, x))
+            mapping = {'positive': 1, 'negative': 0, 'yes': 1, 'no': 0} # Lowercased keys
+            y_test = y_test.map(lambda x: mapping.get(x.lower(), x)) # Map lowercased values
             # Convert to numeric to handle cases where mapping might leave strings or mixed types
             y_test = pd.to_numeric(y_test, errors='coerce')
     else:
-        st.error("The CSV must contain a 'target' column. Please check your column names.")
-        st.stop()
+        print("The CSV must contain either a 'class' or 'target' column. Please check your column names.")
+        exit() # Halts execution like st.stop()
 
     try:
         # 2. Load pre-trained model and scaler
@@ -61,37 +72,34 @@ if uploaded_file:
         model = joblib.load(model_filename)
         scaler = joblib.load('model/scaler.pkl')
         
-        # --- FIX: Ensure feature alignment ---
         # Get the feature names the scaler/model was trained on
-        try:
-            expected_features = scaler.feature_names_in_
-            
-            # Check if we need to perform One-Hot Encoding on the uploaded data to match training
-            # This is common if the CSV has 'Male'/'Female' but model expects 'gender_Male'
-            if not all(col in X_test.columns for col in expected_features):
-                st.info("Aligning categorical features...")
-                X_test = pd.get_dummies(X_test)
-                
-            # Add missing columns with zeros (for categories not present in this specific test set)
-            for col in expected_features:
-                if col not in X_test.columns:
-                    X_test[col] = 0
-            
-            # Reorder columns to exactly match training order
-            X_test = X_test[expected_features]
-        except AttributeError:
-            st.warning("Could not automatically verify feature names. Ensure CSV columns match training data exactly.")
+        expected_features = scaler.feature_names_in_
 
-        # 3. Preprocess data
+        # Apply one-hot encoding to X_test (from diabetes_data_upload.csv)
+        # Ensure drop_first=True to match training data preprocessing in IyHo2v3ntsRR
+        X_test_processed_dummies = pd.get_dummies(X_test, drop_first=True)
+
+        # Reinitialize X_test_aligned to ensure it starts fresh for current X_test
+        X_test_aligned = pd.DataFrame(0, index=X_test_processed_dummies.index, columns=expected_features)
+
+        # Populate X_test_aligned with columns that exist in both
+        for col in expected_features:
+            if col in X_test_processed_dummies.columns:
+                X_test_aligned[col] = X_test_processed_dummies[col]
+
+        X_test_aligned = X_test_aligned[expected_features]
+
+
+        # 3. Preprocess data (scaling)
         # KNN and Logistic Regression need scaled data
         if model_option in ['Logistic Regression', 'KNN']:
-            X_test_processed = scaler.transform(X_test)
+            X_test_final = scaler.transform(X_test_aligned)
         else:
-            X_test_processed = X_test
+            X_test_final = X_test_aligned
 
         # 4. Generate Predictions
-        y_pred = model.predict(X_test_processed)
-        y_prob = model.predict_proba(X_test_processed)[:, 1] if hasattr(model, "predict_proba") else y_pred
+        y_pred = model.predict(X_test_final)
+        y_prob = model.predict_proba(X_test_final)[:, 1] if hasattr(model, "predict_proba") else y_pred
 
         st.divider()
         st.subheader(f"Results for {model_option}")
