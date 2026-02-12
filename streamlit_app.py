@@ -9,13 +9,24 @@ from sklearn.metrics import (
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Set Page Title
 st.set_page_config(page_title="ML Performance Review", layout="wide")
 st.title("ML Classification Model Performance - Early Stage Diabetes Risk Prediction")
 
-# --- a. Dataset upload option ---
 st.sidebar.header("Upload Test Data")
 uploaded_file = st.sidebar.file_uploader("Upload your test CSV data", type="csv")
+
+st.sidebar.header("Download Test Data")
+try:
+    with open("diabetes_data_upload.csv", "rb") as file:
+        st.sidebar.download_button(
+            label="Download Sample Test CSV",
+            data=file,
+            file_name="diabetes_data_upload.csv",
+            mime="text/csv",
+            help="Download this file to use as a template for testing the models."
+        )
+except FileNotFoundError:
+    st.sidebar.warning("Sample CSV file not found in repository root.")
 
 if uploaded_file:
     # Load Data
